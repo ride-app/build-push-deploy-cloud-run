@@ -1,0 +1,80 @@
+name: 'Build and Deploy Cloud Run Revision'
+description: 'Build a Docker Image and Deploy a new Cloud Run Revision'
+inputs:
+  project-id:
+    description: 'GCP Project ID'
+    required: true
+
+  image-name:
+    description: 'Name of the Image'
+    required: true
+
+  service-account:
+    description: 'Service Account for using cloud build and deploying to cloud run'
+    required: true
+
+  dockerfile-path:
+    description: 'Path of the dockerfile to use'
+    required: false
+    default: dockerfile
+
+  build-arg:
+    description: 'Build Arguments to pass to docker during build. This is only required if your dockerfile uses `ARG` to take build arguments'
+    required: false
+
+  tag:
+    description: 'Tag for the Cloud Run Revision'
+    required: false
+
+  region:
+    description: 'Region to deploy the Cloud Run Revision to'
+    required: false
+
+  env-vars:
+    description: 'Enviorment Variables for the revision'
+    required: false
+
+  credentials:
+    description: 'Credentials for the revision'
+    required: false
+
+outputs:
+  url:
+    description: The URL of your Cloud Run service revision
+    value: ${{ steps.deploy.outputs.url }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup GCloud
+      uses: google-github-actions/setup-gcloud@v0.2.1
+      with:
+        project_id: ${{ inputs.project-id }}
+        service_account_key: ${{ inputs.service-account }}
+        export_default_credentials: true
+
+    - name: Configure Docker
+      run: |
+        gcloud auth configure-docker --quiet
+      shell: bash
+
+    - name: Build Image
+      run: |
+        docker build . -f ${{ inputs.dockerfile-path }} -t gcr.io/${{ inputs.project-id }}/${{ inputs.image-name }} --build-arg=${{ inputs.build-arg }}
+      shell: bash
+
+    - name: Push Image to Google Cloud Image Registry
+      run: |
+        docker push gcr.io/${{ inputs.project-id }}/${{ inputs.image-name }}
+      shell: bash
+
+    - name: Deploy New Revision to Cloud Run
+      id: deploy
+      uses: google-github-actions/deploy-cloudrun@v0.6.0
+      with:
+        service: ${{ inputs.image-name }}
+        image: gcr.io/${{ inputs.project-id }}/${{ inputs.image-name }}:latest
+        tag: ${{ inputs.tag }}
+        region: ${{ inputs.region }}
+        env_vars: ${{ inputs.env_vars }}
+        credentials: ${{ inputs.credentials }}
