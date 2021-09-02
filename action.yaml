@@ -1,5 +1,8 @@
 name: 'Build and Deploy Cloud Run Revision'
 description: 'Build a Docker Image and Deploy a new Cloud Run Revision'
+branding:
+  icon: upload-cloud
+  color: green
 inputs:
   project-id:
     description: 'GCP Project ID'
